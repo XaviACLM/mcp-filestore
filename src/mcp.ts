@@ -1,4 +1,4 @@
-import { readFile, createFile, listFiles, deleteFile, appendFile, editFile, searchFiles, ToolResult } from "./tools";
+import { readFile, createFile, listFiles, deleteFile, appendFile, editFile, searchFiles, listProposals, ToolResult } from "./tools";
 import { GitHubClient } from "./github";
 
 // Tool manifest — grows each sprint
@@ -92,6 +92,11 @@ const TOOLS = [
       required: ["pattern"],
     },
   },
+  {
+    name: "list_proposals",
+    description: "List open pull requests representing pending proposed edits to protected files.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 interface JsonRpcRequest {
@@ -171,6 +176,9 @@ export async function handleMcp(req: Request, gh: GitHubClient): Promise<Respons
           break;
         case "search_files":
           result = await searchFiles(gh, args);
+          break;
+        case "list_proposals":
+          result = await listProposals(gh);
           break;
         default:
           return jsonResponse(rpcErr(id, -32601, `Unknown tool: ${p.name}`));

@@ -8,6 +8,13 @@ export interface GitHubTreeEntry {
   type: string; // "blob" | "tree"
 }
 
+export interface PullRequest {
+  number: number;
+  title: string;
+  html_url: string;
+  created_at: string;
+}
+
 export class GitHubClient {
   private base: string;
   private headers: Record<string, string>;
@@ -46,11 +53,11 @@ export class GitHubClient {
     return { content, sha: data.sha };
   }
 
-  async writeFile(path: string, content: string, sha: string | undefined, message: string): Promise<void> {
+  async writeFile(path: string, content: string, sha: string | undefined, message: string, targetBranch?: string): Promise<void> {
     const body: Record<string, unknown> = {
       message,
       content: btoa(unescape(encodeURIComponent(content))),
-      branch: this.branch,
+      branch: targetBranch ?? this.branch,
     };
     if (sha !== undefined) body.sha = sha;
     await this.request(`/contents/${path}`, {
@@ -59,10 +66,10 @@ export class GitHubClient {
     });
   }
 
-  async deleteFile(path: string, sha: string, message: string): Promise<void> {
+  async deleteFile(path: string, sha: string, message: string, targetBranch?: string): Promise<void> {
     await this.request(`/contents/${path}`, {
       method: "DELETE",
-      body: JSON.stringify({ message, sha, branch: this.branch }),
+      body: JSON.stringify({ message, sha, branch: targetBranch ?? this.branch }),
     });
   }
 
@@ -75,5 +82,30 @@ export class GitHubClient {
       throw e;
     }
     return data.tree.filter((e) => e.type === "blob");
+  }
+
+  async getBranchSha(): Promise<string> {
+    const data = await this.request(`/git/ref/heads/${this.branch}`) as { object: { sha: string } };
+    return data.object.sha;
+  }
+
+  async createBranch(name: string, fromSha: string): Promise<void> {
+    await this.request("/git/refs", {
+      method: "POST",
+      body: JSON.stringify({ ref: `refs/heads/${name}`, sha: fromSha }),
+    });
+  }
+
+  async createPR(head: string, title: string, body: string): Promise<string> {
+    const data = await this.request("/pulls", {
+      method: "POST",
+      body: JSON.stringify({ title, body, head, base: this.branch }),
+    }) as { html_url: string };
+    return data.html_url;
+  }
+
+  async listOpenPRs(): Promise<PullRequest[]> {
+    const data = await this.request(`/pulls?state=open&base=${this.branch}`) as PullRequest[];
+    return data;
   }
 }
