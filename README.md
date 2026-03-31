@@ -33,7 +33,7 @@ GITHUB_REPO=your_repo_name
 MCP_AUTH_TOKEN=your_auth_token
 ```
 
-Pick any long random string for `MCP_AUTH_TOKEN`. The worker will return 401 to any request that doesn't include `Authorization: Bearer <your-token>`.
+Pick any long random string for `MCP_AUTH_TOKEN`. The worker will return 401 to any request that doesn't include the token.
 
 **4. Install and run locally:**
 ```
@@ -50,11 +50,12 @@ wrangler secret put GITHUB_REPO
 wrangler secret put MCP_AUTH_TOKEN
 ```
 
-**6. Point your MCP client** at the deployed worker URL. The transport is Streamable HTTP (MCP spec 2025-03-26) — stateless, no session management required. Configure your client to send the header:
+**6. Point your MCP client** at the deployed worker URL with the token as a query parameter:
 ```
-Authorization: Bearer <your-token>
+https://your-worker.workers.dev?token=<your-token>
 ```
-In Claude Projects, this is set under the MCP server's custom headers field.
+
+The token is passed as a query parameter rather than an `Authorization` header because Claude Projects (and likely other hosted MCP clients) don't expose a way to set arbitrary request headers — their OAuth fields expect a full authorization server, which is overkill for a personal tool. The query parameter approach is a pragmatic tradeoff: it works with any HTTP client, at the cost of the token appearing in server-side access logs. For a personal deployment this is acceptable.
 
 **7. Optionally create a `.protected` file** in your GitHub repo to mark files as read-only for the LLM. Uses gitignore-style glob patterns with negation support:
 ```

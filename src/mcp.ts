@@ -123,8 +123,8 @@ function rpcErr(id: string | number | null, code: number, message: string): Json
 
 export async function handleMcp(req: Request, gh: GitHubClient, authToken?: string): Promise<Response> {
   if (authToken) {
-    const header = req.headers.get("Authorization");
-    if (header !== `Bearer ${authToken}`) {
+    const token = new URL(req.url).searchParams.get("token");
+    if (token !== authToken) {
       return new Response("Unauthorized", { status: 401 });
     }
   }
