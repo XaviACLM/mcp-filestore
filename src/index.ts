@@ -6,6 +6,7 @@ export interface Env {
   GITHUB_OWNER: string;
   GITHUB_REPO: string;
   GITHUB_BRANCH: string;
+  MCP_AUTH_TOKEN?: string;
 }
 
 export default {
@@ -16,6 +17,6 @@ export default {
       env.GITHUB_REPO,
       env.GITHUB_BRANCH
     );
-    return handleMcp(request, gh);
+    return handleMcp(request, gh, env.MCP_AUTH_TOKEN);
   },
 };

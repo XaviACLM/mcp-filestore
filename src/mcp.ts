@@ -121,7 +121,14 @@ function rpcErr(id: string | number | null, code: number, message: string): Json
   return { jsonrpc: "2.0", id, error: { code, message } };
 }
 
-export async function handleMcp(req: Request, gh: GitHubClient): Promise<Response> {
+export async function handleMcp(req: Request, gh: GitHubClient, authToken?: string): Promise<Response> {
+  if (authToken) {
+    const header = req.headers.get("Authorization");
+    if (header !== `Bearer ${authToken}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+  }
+
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
