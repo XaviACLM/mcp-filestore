@@ -1,0 +1,20 @@
+{
+  "name": "mcp-filestore",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260331.1",
+    "@types/micromatch": "^4.0.10",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "micromatch": "^4.0.8"
+  }
+}
