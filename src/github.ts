@@ -21,7 +21,7 @@ export class GitHubClient {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
       "Content-Type": "application/json",
-      "User-Agent": "mcp-stash",
+      "User-Agent": "mcp-filestore",
     };
   }
 
@@ -67,9 +67,13 @@ export class GitHubClient {
   }
 
   async getTree(): Promise<GitHubTreeEntry[]> {
-    const data = await this.request(
-      `/git/trees/${this.branch}?recursive=1`
-    ) as { tree: GitHubTreeEntry[] };
+    let data: { tree: GitHubTreeEntry[] };
+    try {
+      data = await this.request(`/git/trees/${this.branch}?recursive=1`) as { tree: GitHubTreeEntry[] };
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message.includes("404")) return [];
+      throw e;
+    }
     return data.tree.filter((e) => e.type === "blob");
   }
 }

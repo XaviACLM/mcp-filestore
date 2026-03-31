@@ -1,4 +1,4 @@
-import { readFile, createFile, ToolResult } from "./tools";
+import { readFile, createFile, listFiles, deleteFile, appendFile, editFile, searchFiles, ToolResult } from "./tools";
 import { GitHubClient } from "./github";
 
 // Tool manifest — grows each sprint
@@ -28,6 +28,68 @@ const TOOLS = [
         content: { type: "string", description: "Full file content" },
       },
       required: ["path", "content"],
+    },
+  },
+  {
+    name: "list_files",
+    description: "List files in the repository. Optionally filter by glob pattern.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: { type: "string", description: "Glob filter, e.g. '**/*.md' or 'journal/2025-*'" },
+      },
+    },
+  },
+  {
+    name: "delete_file",
+    description: "Delete a file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Repo-relative file path" },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "append_file",
+    description: "Append text to the end of an existing file. Use create_file for new files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Repo-relative file path" },
+        content: { type: "string", description: "Text to append" },
+      },
+      required: ["path", "content"],
+    },
+  },
+  {
+    name: "edit_file",
+    description:
+      "Surgically replace a string within a file. Errors if old_string is not found or matches multiple times (use replace_all to override the latter). Supplying old_string acts as verification that you know the current state of the file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Repo-relative file path" },
+        old_string: { type: "string", description: "Exact string to find and replace" },
+        new_string: { type: "string", description: "Replacement string" },
+        replace_all: { type: "boolean", description: "Replace all occurrences (default: false)" },
+      },
+      required: ["path", "old_string", "new_string"],
+    },
+  },
+  {
+    name: "search_files",
+    description: "Search file contents using a regex pattern. Returns matching lines with optional context.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pattern: { type: "string", description: "Regular expression to search for" },
+        glob: { type: "string", description: "Limit search to files matching this glob, e.g. '*.md'" },
+        case_insensitive: { type: "boolean", description: "Case-insensitive matching (default: false)" },
+        context: { type: "number", description: "Lines of context to show around each match (default: 0)" },
+      },
+      required: ["pattern"],
     },
   },
 ];
@@ -72,7 +134,7 @@ export async function handleMcp(req: Request, gh: GitHubClient): Promise<Respons
     case "initialize":
       return jsonResponse(rpcOk(id, {
         protocolVersion: "2025-03-26",
-        serverInfo: { name: "mcp-stash", version: "0.1.0" },
+        serverInfo: { name: "mcp-filestore", version: "0.1.0" },
         capabilities: { tools: {} },
       }));
 
@@ -94,6 +156,21 @@ export async function handleMcp(req: Request, gh: GitHubClient): Promise<Respons
           break;
         case "create_file":
           result = await createFile(gh, args);
+          break;
+        case "list_files":
+          result = await listFiles(gh, args);
+          break;
+        case "delete_file":
+          result = await deleteFile(gh, args);
+          break;
+        case "append_file":
+          result = await appendFile(gh, args);
+          break;
+        case "edit_file":
+          result = await editFile(gh, args);
+          break;
+        case "search_files":
+          result = await searchFiles(gh, args);
           break;
         default:
           return jsonResponse(rpcErr(id, -32601, `Unknown tool: ${p.name}`));
