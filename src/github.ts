@@ -49,7 +49,8 @@ export class GitHubClient {
       content: string;
       sha: string;
     };
-    const content = atob(data.content.replace(/\n/g, ""));
+    const bytes = Uint8Array.from(atob(data.content.replace(/\n/g, "")), c => c.charCodeAt(0));
+    const content = new TextDecoder().decode(bytes);
     return { content, sha: data.sha };
   }
 
