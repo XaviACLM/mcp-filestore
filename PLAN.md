@@ -131,7 +131,38 @@ Tools, protection system, MCP protocol handling, auth mechanism (`?token=`), age
 
 ---
 
-## Sprint 5 — OAuth 2.1 (Authorization Code + PKCE)
+## Sprint 5 — Per-agent root directory
+
+**Goal:** Each `REPO_MAP` entry can optionally specify a `root_dir`, scoping that agent to a subtree of the repo. The agent sees `root_dir` as its filesystem root — paths are translated transparently, the agent has no knowledge of the containing repo structure.
+
+**Estimate:** ~20 LOC. No troubleshooting expected — it's a path-prefix operation applied uniformly before any GitHub API call.
+
+### Config change
+
+Add optional `root_dir` field to `REPO_MAP` entries:
+
+```json
+{
+  "agent-token-abc": {
+    "github_token": "github_pat_...",
+    "owner": "XaviACLM",
+    "repo": "shared-repo",
+    "root_dir": "agents/alice"
+  }
+}
+```
+
+If `root_dir` is absent or empty, behavior is unchanged (full repo access).
+
+### Implementation
+
+Pass `root_dir` from the matched config into `handleMcp`, then thread it through to every file operation as a path prefix. All tool inputs are prefixed before hitting the GitHub API; all tool outputs (file listings, search results) have the prefix stripped before returning to the agent.
+
+A `resolveAgentPath(root_dir, agentPath)` helper handles the prefix/strip logic and should validate that the resolved path doesn't escape the root (no `../` traversal).
+
+---
+
+## Sprint 6 — OAuth 2.1 (Authorization Code + PKCE)
 
 **Goal:** Replace `?token=` query param auth with standard OAuth 2.1 so the worker integrates cleanly with Claude Projects' OAuth fields and any other spec-compliant MCP client.
 

@@ -1,4 +1,1 @@
-GITHUB_TOKEN=your_pat_here
-GITHUB_OWNER=your_github_username
-GITHUB_REPO=your_repo_name
-MCP_AUTH_TOKEN=your_secret_token_here
+REPO_MAP={"your-agent-token":{"github_token":"github_pat_...","owner":"your-github-username","repo":"your-repo-name"},"another-agent-token":{"github_token":"github_pat_...","owner":"your-github-username","repo":"another-repo","branch":"main"}}
