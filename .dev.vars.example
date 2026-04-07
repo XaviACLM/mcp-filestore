@@ -1,1 +1,19 @@
-REPO_MAP={"your-agent-token":{"github_token":"github_pat_...","owner":"your-github-username","repo":"your-repo-name"},"another-agent-token":{"github_token":"github_pat_...","owner":"your-github-username","repo":"another-repo","branch":"main"}}
+REPO_CONFIG={
+	"your-repo-alias":{
+		"github_token":"github_pat_...",
+		"owner":"your-github-username",
+		"repo":"your-repo-name",
+		"agents":{
+			"your-secret-token":"agent-id",
+			"another-secret-token":"another-agent-id"
+		}
+	},
+	"another-repo":{
+		"github_token":"github_pat_...",
+		"owner":"your-github-username",
+		"repo":"another-repo-name",
+		"agents":{
+			"yet-another-token":"agent-id"
+		}
+	}
+}
