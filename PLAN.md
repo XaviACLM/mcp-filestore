@@ -131,38 +131,121 @@ Tools, protection system, MCP protocol handling, auth mechanism (`?token=`), age
 
 ---
 
-## Sprint 5 — Per-agent root directory
+## Sprint 5 — Per-agent root directory ✓ (superseded by Sprint 6)
 
-**Goal:** Each `REPO_MAP` entry can optionally specify a `root_dir`, scoping that agent to a subtree of the repo. The agent sees `root_dir` as its filesystem root — paths are translated transparently, the agent has no knowledge of the containing repo structure.
+Implemented and deployed, but the design was reconsidered. `root_dir` path translation creates write-destination ambiguity when combined with shared files, and pushes per-agent config into the worker where it doesn't belong. Sprint 6 replaces this with a cleaner design. The path helpers (`toRealPath`, `toAgentPath`, `isUnderRoot`) added to `tools.ts` will be removed.
 
-**Estimate:** ~20 LOC. No troubleshooting expected — it's a path-prefix operation applied uniformly before any GitHub API call.
+---
 
-### Config change
+## Sprint 6 — Agent identity + `.agent_config` permission system
 
-Add optional `root_dir` field to `REPO_MAP` entries:
+**Goal:** Replace `root_dir` path translation with a first-class agent identity system. Each agent has a human-readable `agent_id` (separate from their secret token). A `.agent_config` file in the repo — a system file, invisible and uneditable via MCP — defines per-agent visibility and protection rules using gitignore-style glob patterns. Agents work with real repo paths; access control is a filter, not a translation.
+
+This fixes the two main problems with the current design: agents sharing a repo can see shared files without copying them, and per-agent protection rules live in the repo rather than being forced into a global `.protected`.
+
+**Estimate:** ~120 LOC new/changed, ~40 LOC removed (root_dir helpers). Moderate troubleshooting — the config parser and rule merging are the fiddliest parts.
+
+---
+
+### REPO_MAP changes
+
+`root_dir` is removed. `agent_id` is added — a stable human-readable identifier that must match a section in `.agent_config`. It is separate from the token (which remains the secret).
 
 ```json
 {
-  "agent-token-abc": {
+  "long-secret-token-abc": {
     "github_token": "github_pat_...",
     "owner": "XaviACLM",
     "repo": "shared-repo",
-    "root_dir": "agents/alice"
+    "agent_id": "dasha"
+  },
+  "long-secret-token-xyz": {
+    "github_token": "github_pat_...",
+    "owner": "XaviACLM",
+    "repo": "shared-repo",
+    "agent_id": "bob"
   }
 }
 ```
 
-If `root_dir` is absent or empty, behavior is unchanged (full repo access).
-
-### Implementation
-
-Pass `root_dir` from the matched config into `handleMcp`, then thread it through to every file operation as a path prefix. All tool inputs are prefixed before hitting the GitHub API; all tool outputs (file listings, search results) have the prefix stripped before returning to the agent.
-
-A `resolveAgentPath(root_dir, agentPath)` helper handles the prefix/strip logic and should validate that the resolved path doesn't escape the root (no `../` traversal).
+If `agent_id` is absent, the entry has no agent config and the worker errors on any request (no silent full-access fallback). This enforces that `.agent_config` is always the source of truth.
 
 ---
 
-## Sprint 6 — OAuth 2.1 (Authorization Code + PKCE)
+### `.agent_config` format
+
+Git-config-style sections with subsections. Stored at the repo root. System file: excluded from all tool results, returns generic error on any write attempt.
+
+```gitconfig
+[default "protected"]
+**
+
+[default "hidden"]
+**
+!general_instructions.txt
+
+[dasha "protected"]
+!dasha/**
+
+[dasha "hidden"]
+!dasha/**
+
+[bob "protected"]
+!bob/**
+
+[bob "hidden"]
+!bob/**
+```
+
+**Semantics:**
+- For each agent, the effective pattern list for each subsection is: `[default "X"]` patterns concatenated with `[agent_id "X"]` patterns, in that order.
+- Patterns are processed by micromatch in order. Negation (`!`) overrides earlier matches — standard gitignore semantics.
+- `hidden`: files matching the effective pattern are excluded from `list_files`, `search_files`, and return "file not found" on `read_file`.
+- `protected`: files matching the effective pattern redirect writes to a GitHub PR instead of committing directly. Reads are unrestricted.
+- `.agent_config` is always treated as a system file regardless of what patterns say.
+- `"default"` is a reserved word — using it as an `agent_id` in REPO_MAP is an error.
+- If an `agent_id` appears in REPO_MAP but has no section in `.agent_config`, the worker returns an error (not silent full access).
+
+---
+
+### `list_proposals` fix
+
+Branch naming changes from `proposal/{timestamp}-{sanitized-path}` to `proposal/{agent_id}/{timestamp}-{sanitized-path}`. Agents only see proposals under their own prefix. `listProposals` in `tools.ts` gets an `agentId` parameter and filters accordingly.
+
+---
+
+### Code changes
+
+**`src/index.ts`**
+- Remove `root_dir` from `RepoConfig`; add `agent_id: string`
+- Validate `agent_id` not equal to `"default"`
+- Pass `agent_id` to `handleMcp` alongside `gh`
+
+**`src/mcp.ts`**
+- `handleMcp(req, gh, agentId)` — replace `rootDir` param with `agentId`
+- Pass `agentId` to all tool calls
+
+**`src/tools.ts`**
+- Remove `toRealPath`, `toAgentPath`, `isUnderRoot` helpers and all `rootDir` parameters
+- Add `.agent_config` parser: fetch from GitHub, parse git-config sections, merge `[default]` + `[agent_id]` patterns for `hidden` and `protected`
+- Replace `getProtectedPatterns` + `resolveAccess` with new `resolveAccess(path, agentId, gh)` that consults `.agent_config`
+- Add `isHidden(path, agentId, gh)` check at the top of `readFile`, `listFiles`, `searchFiles`
+- Update `createProposal` branch naming to include `agentId`
+- Update `listProposals` to filter by `agentId`
+- All tool functions: remove `rootDir` param, add `agentId` param
+
+**`src/github.ts`**
+- No changes
+
+---
+
+### What doesn't change
+
+Tool signatures (from the agent's perspective), MCP protocol handling, `?token=` auth, `REPO_MAP` structure (minus `root_dir`, plus `agent_id`).
+
+---
+
+## Sprint 7 — OAuth 2.1 (Authorization Code + PKCE)
 
 **Goal:** Replace `?token=` query param auth with standard OAuth 2.1 so the worker integrates cleanly with Claude Projects' OAuth fields and any other spec-compliant MCP client.
 

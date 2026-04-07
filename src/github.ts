@@ -13,6 +13,7 @@ export interface PullRequest {
   title: string;
   html_url: string;
   created_at: string;
+  head: { ref: string };
 }
 
 export class GitHubClient {

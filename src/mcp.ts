@@ -121,7 +121,7 @@ function rpcErr(id: string | number | null, code: number, message: string): Json
   return { jsonrpc: "2.0", id, error: { code, message } };
 }
 
-export async function handleMcp(req: Request, gh: GitHubClient): Promise<Response> {
+export async function handleMcp(req: Request, gh: GitHubClient, agentId: string): Promise<Response> {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -157,28 +157,28 @@ export async function handleMcp(req: Request, gh: GitHubClient): Promise<Respons
 
       switch (p.name) {
         case "read_file":
-          result = await readFile(gh, args);
+          result = await readFile(gh, args, agentId);
           break;
         case "create_file":
-          result = await createFile(gh, args);
+          result = await createFile(gh, args, agentId);
           break;
         case "list_files":
-          result = await listFiles(gh, args);
+          result = await listFiles(gh, args, agentId);
           break;
         case "delete_file":
-          result = await deleteFile(gh, args);
+          result = await deleteFile(gh, args, agentId);
           break;
         case "append_file":
-          result = await appendFile(gh, args);
+          result = await appendFile(gh, args, agentId);
           break;
         case "edit_file":
-          result = await editFile(gh, args);
+          result = await editFile(gh, args, agentId);
           break;
         case "search_files":
-          result = await searchFiles(gh, args);
+          result = await searchFiles(gh, args, agentId);
           break;
         case "list_proposals":
-          result = await listProposals(gh);
+          result = await listProposals(gh, agentId);
           break;
         default:
           return jsonResponse(rpcErr(id, -32601, `Unknown tool: ${p.name}`));

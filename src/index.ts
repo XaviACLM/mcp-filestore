@@ -6,6 +6,7 @@ interface RepoConfig {
   owner: string;
   repo: string;
   branch?: string;
+  agent_id: string;
 }
 
 export interface Env {
@@ -27,12 +28,16 @@ export default {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    if (!config.agent_id || config.agent_id === "default") {
+      return new Response("Server misconfiguration: invalid agent_id", { status: 500 });
+    }
+
     const gh = new GitHubClient(
       config.github_token,
       config.owner,
       config.repo,
       config.branch ?? "main"
     );
-    return handleMcp(request, gh);
+    return handleMcp(request, gh, config.agent_id);
   },
 };
