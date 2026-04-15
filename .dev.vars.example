@@ -1,11 +1,19 @@
+JWT_SECRET=your-long-random-signing-secret-here
+OAUTH_AUTO_APPROVE=true
 REPO_CONFIG={
 	"your-repo-alias":{
 		"github_token":"github_pat_...",
 		"owner":"your-github-username",
 		"repo":"your-repo-name",
 		"agents":{
-			"your-secret-token":"agent-id",
-			"another-secret-token":"another-agent-id"
+			"oauth-client-id-alice":{
+				"agent_id":"alice",
+				"client_secret":"long-random-secret-alice"
+			},
+			"oauth-client-id-bob":{
+				"agent_id":"bob",
+				"client_secret":"long-random-secret-bob"
+			}
 		}
 	},
 	"another-repo":{
@@ -13,7 +21,10 @@ REPO_CONFIG={
 		"owner":"your-github-username",
 		"repo":"another-repo-name",
 		"agents":{
-			"yet-another-token":"agent-id"
+			"oauth-client-id-carol":{
+				"agent_id":"carol",
+				"client_secret":"long-random-secret-carol"
+			}
 		}
 	}
 }
