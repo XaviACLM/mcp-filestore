@@ -2,7 +2,7 @@
 
 An MCP server that exposes private GitHub repositories as editable filesystems of text files — deployable as a stateless Cloudflare Worker, free tier compatible. Supports multiple repos and multiple agents from a single deployment.
 
-All the code here was written by Claude in a couple hours.
+All the code on this repo was written by Claude, following [this spec](SPEC.md).
 
 ## Philosophy
 
@@ -25,22 +25,29 @@ See [SPEC.md](SPEC.md) for full details on tools and design decisions.
 cp .dev.vars.example .dev.vars
 ```
 
-Fill in `.dev.vars` with your `REPO_CONFIG` — a JSON object mapping repo aliases to their configs:
+Fill in `.dev.vars`:
 
 ```
+JWT_SECRET=a-long-random-string
+OAUTH_AUTO_APPROVE=true
 REPO_CONFIG={
   "my-repo": {
     "github_token": "github_pat_...",
     "owner": "your-github-username",
     "repo": "your-repo-name",
     "agents": {
-      "secret-token-alice": "alice"
+      "oauth-client-id-alice": {
+        "agent_id": "alice",
+        "client_secret": "another-long-random-string"
+      }
     }
   }
 }
 ```
 
-Each entry holds a fine-grained GitHub PAT for that repo, its owner/name, an optional `branch` (defaults to `"main"`), and an `agents` map from secret tokens to agent IDs. The token is what goes in the MCP URL; the agent ID is the stable identity used in `.agent_config`.
+- `JWT_SECRET`: a long random string used to sign all OAuth tokens. Rotating it immediately revokes all active sessions.
+- `OAUTH_AUTO_APPROVE`: if `true`, the authorization page is skipped and access is granted silently. Fine for personal use; set to `false` if you want an explicit approval step.
+- `agents` maps OAuth client IDs to `{ agent_id, client_secret }`. The client ID and secret are what you enter in your MCP client's OAuth fields; the agent ID is the stable identity used in `.agent_config`.
 
 You can serve multiple repos and multiple agents from one deployment — just add more entries.
 
@@ -80,12 +87,12 @@ general_instructions.txt
 - Every agent that connects must have a section in `.agent_config`. Agents with no section get an error on every tool call.
 - `.agent_config` itself is a system file — invisible to all agents.
 
-**7. Point your MCP client** at the deployed worker URL with the agent's token as a query parameter:
+**7. Connect your MCP client.** Point it at the worker URL:
 ```
-https://your-worker.workers.dev?token=<agent-token>
+https://your-worker.workers.dev
 ```
 
-The token is passed as a query parameter rather than an `Authorization` header because Claude Projects (and likely other hosted MCP clients) don't expose a way to set arbitrary request headers. The query parameter approach works with any HTTP client, at the cost of the token appearing in server-side access logs. For a personal deployment this is acceptable.
+In Claude Projects, add a new MCP connector with that URL and enter your `client_id` and `client_secret` in the OAuth fields. Claude will open an authorization window on first use — approve it and you're connected. If `OAUTH_AUTO_APPROVE=true`, the window closes automatically.
 
 **8. Run locally** (optional, for development):
 ```
