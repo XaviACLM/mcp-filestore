@@ -159,6 +159,47 @@ export async function readFile(
   return ok(text);
 }
 
+// --- read_files ---
+
+export async function readFiles(
+  gh: GitHubClient,
+  args: Record<string, unknown>,
+  agentId: string
+): Promise<ToolResult> {
+  const paths = args.paths;
+  if (!Array.isArray(paths) || paths.length === 0) return err("paths must be a non-empty array");
+  if (!paths.every((p) => typeof p === "string" && p !== "")) return err("each path must be a non-empty string");
+
+  let config: AgentConfig;
+  try {
+    config = await getAgentConfig(gh, agentId);
+  } catch (e: unknown) {
+    return err(e instanceof Error ? e.message : String(e));
+  }
+
+  const results = await Promise.all(
+    (paths as string[]).map(async (path) => {
+      if (isSystemPath(path) || isHidden(path, config)) {
+        return { path, content: null as string | null, error: `File not found: ${path}` };
+      }
+      try {
+        const { content } = await gh.getFile(path);
+        return { path, content, error: null as string | null };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        const error = msg.includes("404") ? `File not found: ${path}` : `Failed to read file: ${msg}`;
+        return { path, content: null as string | null, error };
+      }
+    })
+  );
+
+  const sections = results.map(({ path, content, error }) =>
+    error !== null ? `=== ${path} ===\n${error}` : `=== ${path} ===\n${content}`
+  );
+
+  return ok(sections.join("\n\n"));
+}
+
 // --- list_files ---
 
 export async function listFiles(

@@ -99,7 +99,7 @@ A file `.agent_config` at the repo root defines per-agent visibility and write p
 
 ### Subsections
 
-- `hidden`: files matching these gitignore-style glob patterns are fully invisible to the agent. They are excluded from `list_files` and `search_files`, return "file not found" on `read_file`, and return "invalid filename" on write attempts.
+- `hidden`: files matching these gitignore-style glob patterns are fully invisible to the agent. They are excluded from `list_files` and `search_files`. For all operations that presuppose existence (read, delete, append, edit), hidden files return the same "file not found" error as a nonexistent file. `create_file` on a hidden path returns "invalid filename" with no further explanation — the same response as a system file like `.agent_config`.
 - `protected`: files matching these patterns are write-protected. Reads proceed normally. Write operations (create, delete, append, edit) are intercepted and redirected to a GitHub pull request for human review instead of committing directly.
 
 ### `[default "..."]` section
@@ -171,7 +171,22 @@ read_file(path: string, offset?: number, limit?: number) -> string
 - `offset`: First line to return (1-indexed). Default: 1.
 - `limit`: Number of lines to return. Default: entire file.
 - Returns the file content as a string (with line numbers if offset/limit are used).
-- Error if file does not exist or is hidden.
+- Error if file does not exist. Hidden files are treated as nonexistent — same error either way.
+
+---
+
+### `read_files`
+
+Read the contents of multiple files in a single call.
+
+```
+read_files(paths: string[]) -> string
+```
+
+- `paths`: Array of repo-relative file paths to read.
+- Returns all file contents in a single response, each preceded by a `=== path ===` header.
+- Files that do not exist, are hidden, or fail to load are included with an inline error message rather than aborting the whole call.
+- No offset/limit support; always returns full file contents. Use `read_file` for partial reads.
 
 ---
 
@@ -198,7 +213,7 @@ delete_file(path: string) -> void
 ```
 
 - Fetches the current file SHA, then deletes.
-- Error if file does not exist or is hidden.
+- Error if file does not exist. Hidden files are treated as nonexistent — same error either way.
 - If the file is protected, opens a PR proposing the deletion.
 
 ---
@@ -212,7 +227,7 @@ append_file(path: string, content: string) -> void
 ```
 
 - Fetches current content + SHA, appends `content`, writes back.
-- Error if file does not exist or is hidden.
+- Error if file does not exist. Hidden files are treated as nonexistent — same error either way.
 - If the file is protected, opens a PR with the appended version.
 
 ---
@@ -230,10 +245,9 @@ edit_file(
 ) -> void
 ```
 
-- Fetches current content + SHA.
+- Fetches current content + SHA. Error if file does not exist. Hidden files are treated as nonexistent — same error either way.
 - Error if `old_string` is not found.
 - Error if `old_string` appears more than once and `replace_all` is false.
-- Error if file is hidden.
 - If the file is protected, opens a PR with the edited version.
 
 ---

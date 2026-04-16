@@ -1,4 +1,4 @@
-import { readFile, createFile, listFiles, deleteFile, appendFile, editFile, searchFiles, listProposals, ToolResult } from "./tools";
+import { readFile, readFiles, createFile, listFiles, deleteFile, appendFile, editFile, searchFiles, listProposals, ToolResult } from "./tools";
 import { GitHubClient } from "./github";
 
 // Tool manifest — grows each sprint
@@ -15,6 +15,21 @@ const TOOLS = [
         limit: { type: "number", description: "Number of lines to return (default: entire file)" },
       },
       required: ["path"],
+    },
+  },
+  {
+    name: "read_files",
+    description: "Read the contents of multiple files in a single call. Returns each file's content under a === path === header. Files that don't exist or are hidden return an inline error rather than aborting the call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        paths: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of repo-relative file paths to read",
+        },
+      },
+      required: ["paths"],
     },
   },
   {
@@ -158,6 +173,9 @@ export async function handleMcp(req: Request, gh: GitHubClient, agentId: string)
       switch (p.name) {
         case "read_file":
           result = await readFile(gh, args, agentId);
+          break;
+        case "read_files":
+          result = await readFiles(gh, args, agentId);
           break;
         case "create_file":
           result = await createFile(gh, args, agentId);
